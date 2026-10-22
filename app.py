@@ -13,12 +13,11 @@ st.markdown("""
 .block-container {max-width: 1500px; padding-top: 1rem; padding-bottom: 3rem;}
 /* Keep Streamlit's native page scrolling. Forcing overflow on internal
    containers can trap the page and make End/mouse-wheel scrolling fail. */
-html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
-    height: auto;
-    min-height: 100%;
-    overflow: visible;
+.block-container {
+    max-width: 1500px;
+    padding-top: 1rem;
+    padding-bottom: 3rem;
 }
-[data-testid="stMain"] > div {overflow: visible;}
 .bw-note {font-size: .9rem; color: #536273;}
 </style>
 """, unsafe_allow_html=True)
