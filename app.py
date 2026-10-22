@@ -284,8 +284,106 @@ with col_b:
     st.markdown("**Beams**")
     st.dataframe(pd.DataFrame(beams)[["id", "span", "orientation"]], use_container_width=True, hide_index=True)
 
+
+# ---------- dedicated load analysis and structural analysis sections ----------
+st.subheader("4. Load analysis")
+st.caption(
+    "Preliminary load ledger for learning and prototype demonstration. Loads below use stated assumptions; "
+    "they are not a substitute for a complete load take-down or code-based building model."
+)
+load_dead_slab = 0.15 * 25.0                 # 150 mm trial slab x 25 kN/m³
+load_floor_finish = 1.0                     # kN/m² allowance
+load_wall_allowance = 1.0                   # kN/m² allowance, not wall-by-wall take-down
+load_live = 2.0 if building_type in ["Residential", "Mixed use"] else 3.0
+load_dead_total = load_dead_slab + load_floor_finish + load_wall_allowance
+load_service_area = load_dead_total + load_live
+load_rows = [
+    {"Load component": "RCC slab self-weight (150 mm trial)", "Assumption / basis": "0.15 m × 25 kN/m³", "Load (kN/m²)": load_dead_slab},
+    {"Load component": "Floor finish allowance", "Assumption / basis": "Assumed allowance", "Load (kN/m²)": load_floor_finish},
+    {"Load component": "Wall / partition allowance", "Assumption / basis": "Preliminary allowance; not wall-by-wall", "Load (kN/m²)": load_wall_allowance},
+    {"Load component": "Imposed / live load", "Assumption / basis": "Illustrative occupancy allowance", "Load (kN/m²)": load_live},
+    {"Load component": "Total dead load allowance", "Assumption / basis": "Slab + finish + wall allowance", "Load (kN/m²)": load_dead_total},
+    {"Load component": "Total service area load", "Assumption / basis": "Dead + live; preliminary", "Load (kN/m²)": load_service_area},
+]
+st.dataframe(pd.DataFrame(load_rows), use_container_width=True, hide_index=True)
+la1, la2, la3 = st.columns(3)
+la1.metric("Dead load allowance", f"{load_dead_total:.2f} kN/m²")
+la2.metric("Live load allowance", f"{load_live:.2f} kN/m²")
+la3.metric("Service area load", f"{load_service_area:.2f} kN/m²")
+st.info(
+    "Wind and earthquake actions are not calculated in this prototype because a defensible design needs verified "
+    "site parameters, building height/geometry, exposure, seismic zone and the applicable current code workflow. "
+    "Do not treat these assumed area loads as approved design loads."
+)
+
+st.subheader("5. Structural analysis")
+st.caption(
+    "The beam example below calculates a simply supported member under a uniform line load, with its assumptions shown. "
+    "It is a simplified demonstration—not a full 3D building analysis or proof of RCC capacity."
+)
+analysis_beam_id = st.selectbox("Choose a beam for analysis", [b["id"] for b in beams], key="analysis_beam_id")
+analysis_beam = next(b for b in beams if b["id"] == analysis_beam_id)
+analysis_span = max(float(analysis_beam["span"]), 1.0)
+analysis_bw, analysis_bd = 0.25, max(0.30, analysis_span / 12.0)
+analysis_trib_width = max(approx_l / 4.0, 2.0)
+analysis_self_weight = analysis_bw * analysis_bd * 25.0
+analysis_line_load = load_service_area * analysis_trib_width + analysis_self_weight
+analysis_reaction = analysis_line_load * analysis_span / 2.0
+analysis_vmax = analysis_reaction
+analysis_mmax = analysis_line_load * analysis_span**2 / 8.0
+analysis_E = 25e6  # kN/m² illustrative elastic modulus
+analysis_I = analysis_bw * analysis_bd**3 / 12.0
+analysis_deflection = 5 * analysis_line_load * analysis_span**4 / (384 * analysis_E * analysis_I)
+analysis_x = np.linspace(0, analysis_span, 120)
+analysis_V = analysis_line_load * analysis_span / 2 - analysis_line_load * analysis_x
+analysis_M = analysis_line_load * analysis_x * (analysis_span - analysis_x) / 2
+sa1, sa2, sa3, sa4 = st.columns(4)
+sa1.metric("Span", f"{analysis_span:.2f} m")
+sa2.metric("Line load", f"{analysis_line_load:.2f} kN/m")
+sa3.metric("Peak moment", f"{analysis_mmax:.2f} kN·m")
+sa4.metric("Estimated deflection", f"{analysis_deflection*1000:.2f} mm")
+plot1, plot2 = st.columns(2)
+with plot1:
+    af1, aax1 = plt.subplots(figsize=(6.2, 3.0))
+    aax1.plot(analysis_x, analysis_V, color="#1d4ed8", lw=2)
+    aax1.fill_between(analysis_x, analysis_V, 0, alpha=.16, color="#60a5fa")
+    aax1.axhline(0, color="black", lw=.8)
+    aax1.set_title(f"{analysis_beam_id} — Shear Force Diagram (SFD)")
+    aax1.set_xlabel("Distance along span (m)")
+    aax1.set_ylabel("Shear force (kN)")
+    aax1.grid(alpha=.25)
+    af1.tight_layout()
+    st.pyplot(af1, use_container_width=True)
+    plt.close(af1)
+with plot2:
+    af2, aax2 = plt.subplots(figsize=(6.2, 3.0))
+    aax2.plot(analysis_x, analysis_M, color="#15803d", lw=2)
+    aax2.fill_between(analysis_x, analysis_M, 0, alpha=.16, color="#86efac")
+    aax2.axhline(0, color="black", lw=.8)
+    aax2.set_title(f"{analysis_beam_id} — Bending Moment Diagram (BMD)")
+    aax2.set_xlabel("Distance along span (m)")
+    aax2.set_ylabel("Moment (kN·m)")
+    aax2.grid(alpha=.25)
+    af2.tight_layout()
+    st.pyplot(af2, use_container_width=True)
+    plt.close(af2)
+analysis_results = pd.DataFrame([
+    ["Support reaction (each end, symmetric)", f"{analysis_reaction:.2f} kN"],
+    ["Maximum shear force", f"{analysis_vmax:.2f} kN"],
+    ["Maximum bending moment", f"{analysis_mmax:.2f} kN·m"],
+    ["Estimated elastic midspan deflection", f"{analysis_deflection*1000:.2f} mm"],
+    ["Model", "Simply supported beam + uniform line load"],
+    ["Load basis", f"{load_service_area:.2f} kN/m² × {analysis_trib_width:.2f} m tributary width + beam self-weight"],
+], columns=["Analysis output", "Result"])
+st.dataframe(analysis_results, use_container_width=True, hide_index=True)
+st.warning(
+    "This analysis does not yet include a coordinated building-wide stiffness model, load combinations, "
+    "lateral analysis, torsion, support settlement, or code-based strength/serviceability verification. "
+    "Use it as a demonstration only; a qualified structural engineer must verify any real design."
+)
+
 # ---------- member selection and design estimates ----------
-st.subheader("4. Select any member for its diagram and estimate")
+st.subheader("6. Select any member for its diagram and estimate")
 member_kind = st.radio("Member type", ["Beam", "Column", "Slab", "Foundation"], horizontal=True)
 if member_kind == "Beam":
     member_ids = [b["id"] for b in beams]
@@ -423,7 +521,7 @@ if member_kind == "Beam":
 st.caption("Member sections and reinforcement markers are schematic. The app does not perform complete code-based RC design or prove load capacity. Steel values are quantity allowances, not reinforcement detailing.")
 
 # ---------- building quantities and cost ----------
-st.subheader("5. Whole-building material and cost estimate")
+st.subheader("7. Whole-building material and cost estimate")
 st.caption("The table explicitly lists the materials being costed. Quantities are preliminary area-factor allowances, not a measured bill of quantities.")
 # Transparent prototype quantities/rates. Concrete ingredients are split out for clarity.
 concrete_vol = total_area * 0.22
@@ -461,7 +559,7 @@ m3.metric("Indicative total incl. 5% contingency", f"₹{grand_total:,.0f}")
 st.caption("Rates are editable illustrative placeholders, not live supplier quotations. Cement/sand/aggregate conversions use a rough concrete allowance; verify mix design, wastage, local rates, taxes, transport and measured drawings before procurement. The table does not yet include doors/windows, plumbing, electrical, paint, waterproofing, excavation, or a measured reinforcement bar-bending schedule.")
 
 # ---------- report ----------
-st.subheader("6. Final report")
+st.subheader("8. Final report")
 report = f"""BUILDWISE AI — CONCEPT REPORT
 
 Location: {location}
