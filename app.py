@@ -11,8 +11,14 @@ st.set_page_config(page_title="BuildWise AI", page_icon="🏗️", layout="wide"
 st.markdown("""
 <style>
 .block-container {max-width: 1500px; padding-top: 1rem; padding-bottom: 3rem;}
-[data-testid="stAppViewContainer"] {overflow-y: auto !important;}
-[data-testid="stMain"] {overflow: visible !important;}
+/* Keep Streamlit's native page scrolling. Forcing overflow on internal
+   containers can trap the page and make End/mouse-wheel scrolling fail. */
+html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+}
+[data-testid="stMain"] > div {overflow: visible;}
 .bw-note {font-size: .9rem; color: #536273;}
 </style>
 """, unsafe_allow_html=True)
