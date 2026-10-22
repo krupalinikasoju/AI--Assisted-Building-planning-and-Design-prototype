@@ -11,13 +11,6 @@ st.set_page_config(page_title="BuildWise AI", page_icon="🏗️", layout="wide"
 st.markdown("""
 <style>
 .block-container {max-width: 1500px; padding-top: 1rem; padding-bottom: 3rem;}
-/* Keep Streamlit's native page scrolling. Forcing overflow on internal
-   containers can trap the page and make End/mouse-wheel scrolling fail. */
-.block-container {
-    max-width: 1500px;
-    padding-top: 1rem;
-    padding-bottom: 3rem;
-}
 .bw-note {font-size: .9rem; color: #536273;}
 </style>
 """, unsafe_allow_html=True)
@@ -74,71 +67,130 @@ def style_plan(ax, title, w, l):
     ax.annotate("", xy=(w+0.8, l+0.35), xytext=(w+0.8, l-0.1), arrowprops={"arrowstyle":"->", "lw":1.5})
 
 def architectural_plan(w, l, floor_no):
-    fig, ax = plt.subplots(figsize=(9, 6))
-    ax.add_patch(Rectangle((0,0), w, l, fill=False, linewidth=3, edgecolor="black"))
-    # Conceptual room zoning. These are not detailed architectural/CAD drawings.
-    splitx, splity = w*0.52, l*0.52
-    ax.plot([splitx, splitx], [0, l], color="black", lw=1.7)
-    ax.plot([0, w], [splity, splity], color="black", lw=1.7)
-    ax.plot([splitx, w], [splity*0.55, splity*0.55], color="black", lw=1.4)
-    ax.text(splitx/2, (splity+l)/2, "Living / common\narea", ha="center", va="center", fontsize=9)
-    ax.text((splitx+w)/2, (splity+l)/2, "Bedroom / room", ha="center", va="center", fontsize=9)
-    ax.text(splitx/2, splity/2, "Kitchen / dining", ha="center", va="center", fontsize=9)
-    ax.text((splitx+w)/2, l*0.23, "Bedroom / utility", ha="center", va="center", fontsize=9)
-    # entry gap and simple door swing marker
-    ax.plot([w*0.25, w*0.42], [0,0], color="white", lw=5)
-    ax.plot([w*0.25, w*0.25], [0, min(0.8,l*.12)], color="black", lw=1.2)
-    ax.add_patch(Arc((w*.25,0), min(1.5,w*.25), min(1.5,w*.25), theta1=0, theta2=90, color="black", lw=1))
-    # dimension lines
-    ax.annotate("", xy=(0,-.65), xytext=(w,-.65), arrowprops={"arrowstyle":"<->", "lw":1})
-    ax.text(w/2,-.95,f"{w:.2f} m",ha="center",va="top",fontsize=9)
-    ax.annotate("", xy=(-.65,0), xytext=(-.65,l), arrowprops={"arrowstyle":"<->", "lw":1})
-    ax.text(-.95,l/2,f"{l:.2f} m",ha="center",va="center",rotation=90,fontsize=9)
-    style_plan(ax, f"Floor {floor_no+1} — schematic room-zone plan", w, l)
+    """Generate a dimensioned concept plan with room zones, openings and a stair marker."""
+    fig, ax = plt.subplots(figsize=(10, 7))
+    wall_lw = 3.0
+    # Outer walls
+    ax.add_patch(Rectangle((0, 0), w, l, fill=False, linewidth=wall_lw, edgecolor="black"))
+    # A practical schematic layout with a central passage and four zones
+    passage = min(1.0, w * 0.12)
+    splitx = w * 0.52
+    splity = l * 0.52
+    # Internal partitions (leave small gaps to suggest door openings)
+    ax.plot([splitx, splitx], [0, l], color="black", lw=1.8)
+    ax.plot([0, w*0.42], [splity, splity], color="black", lw=1.8)
+    ax.plot([w*0.58, w], [splity, splity], color="black", lw=1.8)
+    ax.plot([splitx, w], [l*0.25, l*0.25], color="black", lw=1.8)
+    # Room labels and approximate internal dimensions
+    rooms = [
+        (w*0.25, l*0.76, "LIVING / COMMON", w*0.50, l*0.48),
+        (w*0.76, l*0.76, "BEDROOM 1", w*0.48, l*0.48),
+        (w*0.25, l*0.25, "KITCHEN / DINING", w*0.50, l*0.48),
+        (w*0.76, l*0.62, "BEDROOM 2", w*0.48, l*0.23),
+        (w*0.76, l*0.12, "BATH / UTILITY", w*0.48, l*0.24),
+    ]
+    for x, y, label, rw, rh in rooms:
+        ax.text(x, y, f"{label}\n≈ {rw:.2f} × {rh:.2f} m", ha="center", va="center", fontsize=8)
+    # Main entry gap and door leaf / swing
+    door_x1, door_x2 = w*0.12, w*0.24
+    ax.plot([door_x1, door_x2], [0, 0], color="white", lw=5, solid_capstyle="butt", zorder=5)
+    door_w = max(0.7, min(0.9, w*0.12))
+    ax.plot([door_x1, door_x1], [0, door_w], color="#1f77b4", lw=1.5, zorder=6)
+    ax.add_patch(Arc((door_x1, 0), 2*door_w, 2*door_w, theta1=0, theta2=90, color="#1f77b4", lw=1.2))
+    ax.text((door_x1+door_x2)/2, -0.18, "ENTRY", ha="center", va="top", fontsize=7)
+    # Indicative window symbols on outer walls
+    for wx in [w*0.20, w*0.72]:
+        ax.plot([wx-0.35, wx+0.35], [l, l], color="#168aad", lw=4, solid_capstyle="butt", zorder=6)
+    ax.plot([0, 0], [l*0.68, l*0.82], color="#168aad", lw=4, solid_capstyle="butt", zorder=6)
+    ax.plot([w, w], [l*0.65, l*0.79], color="#168aad", lw=4, solid_capstyle="butt", zorder=6)
+    # Staircase marker (schematic)
+    sx, sy = w*0.68, l*0.28
+    sw, sh = min(1.4, w*0.22), min(2.0, l*0.20)
+    ax.add_patch(Rectangle((sx, sy), sw, sh, fill=False, edgecolor="#7b2cbf", lw=1.4))
+    for k in range(1, 7):
+        yy = sy + sh*k/7
+        ax.plot([sx, sx+sw], [yy, yy], color="#7b2cbf", lw=.8)
+    ax.annotate("UP", xy=(sx+sw/2, sy+sh*.82), xytext=(sx+sw/2, sy+sh*.25), ha="center", fontsize=7,
+                arrowprops={"arrowstyle":"->", "color":"#7b2cbf", "lw":1})
+    # Overall dimension strings
+    dim_y = -0.75
+    ax.annotate("", xy=(0, dim_y), xytext=(w, dim_y), arrowprops={"arrowstyle":"<->", "lw":1})
+    ax.text(w/2, dim_y-0.12, f"Overall width = {w:.2f} m", ha="center", va="top", fontsize=9)
+    dim_x = -0.75
+    ax.annotate("", xy=(dim_x, 0), xytext=(dim_x, l), arrowprops={"arrowstyle":"<->", "lw":1})
+    ax.text(dim_x-0.12, l/2, f"Overall length = {l:.2f} m", ha="center", va="center", rotation=90, fontsize=9)
+    style_plan(ax, f"Floor {floor_no+1} — dimensioned concept plan", w, l)
+    ax.text(w/2, l+1.25, "Black = walls  |  Blue = indicative openings  |  Purple = stair marker", ha="center", fontsize=8)
     fig.tight_layout()
     return fig
 
 def structural_plan(kind, w, l):
-    fig, ax = plt.subplots(figsize=(9, 6))
+    """Create coordinated concept grid sheets; member positions are illustrative only."""
+    fig, ax = plt.subplots(figsize=(10, 7))
     nx, ny = 3, 3
-    xs = np.linspace(0,w,nx); ys = np.linspace(0,l,ny)
-    ax.add_patch(Rectangle((0,0),w,l,fill=False,edgecolor="black",lw=1.5))
-    for i,x in enumerate(xs):
-        ax.plot([x,x],[0,l], color="black", lw=1.0 if kind=="Column plan" else .7, linestyle="--" if kind=="Column plan" else "-")
-    for j,y in enumerate(ys):
-        ax.plot([0,w],[y,y], color="black", lw=1.0 if kind=="Column plan" else .7, linestyle="--" if kind=="Column plan" else "-")
-    for i,x in enumerate(xs):
-        for j,y in enumerate(ys):
+    xs = np.linspace(0, w, nx)
+    ys = np.linspace(0, l, ny)
+    ax.add_patch(Rectangle((0, 0), w, l, fill=False, edgecolor="black", lw=1.6))
+    # Grid axes and grid labels
+    for i, x in enumerate(xs):
+        ax.plot([x, x], [0, l], color="#9aa0a6", lw=.8, linestyle="--")
+        ax.text(x, l+0.25, chr(65+i), ha="center", va="bottom", fontsize=9, fontweight="bold")
+    for j, y in enumerate(ys):
+        ax.plot([0, w], [y, y], color="#9aa0a6", lw=.8, linestyle="--")
+        ax.text(-0.25, y, str(j+1), ha="right", va="center", fontsize=9, fontweight="bold")
+    # Actual grid nodes / beam runs / slab panels / footing symbols
+    col_id = 1
+    for i, x in enumerate(xs):
+        for j, y in enumerate(ys):
             if kind == "Column plan":
-                ax.add_patch(Rectangle((x-.12,y-.12),.24,.24,fill=False,edgecolor="black",lw=1.6))
-                ax.text(x+.15,y+.15,f"C{i*ny+j+1}",fontsize=8)
-            elif kind == "Beam plan":
-                ax.text(x+.08,y+.12,f"J{i*ny+j+1}",fontsize=7)
-            elif kind == "Slab plan":
-                if i<nx-1 and j<ny-1:
-                    ax.text((xs[i]+xs[i+1])/2,(ys[j]+ys[j+1])/2,f"S{j*(nx-1)+i+1}",ha="center",va="center",fontsize=9)
+                ax.add_patch(Rectangle((x-.13, y-.13), .26, .26, fill=False, edgecolor="#d62828", lw=1.8))
+                ax.text(x+.16, y+.16, f"C{col_id}", fontsize=8, color="#d62828")
             elif kind == "Foundation plan":
-                ax.add_patch(Rectangle((x-.28,y-.28),.56,.56,fill=False,edgecolor="black",lw=1.3))
-                ax.text(x+.3,y+.3,f"F{i*ny+j+1}",fontsize=8)
-    style_plan(ax, kind + " — concept grid", w, l)
+                fw, fl = min(.75, w*.16), min(.75, l*.10)
+                ax.add_patch(Rectangle((x-fw/2, y-fl/2), fw, fl, fill=False, edgecolor="#6a4c93", lw=1.6))
+                ax.text(x+.18, y+.18, f"F{col_id}", fontsize=8, color="#6a4c93")
+            col_id += 1
+    if kind == "Beam plan":
+        bid = 1
+        for j, y in enumerate(ys):
+            for i in range(nx-1):
+                ax.plot([xs[i], xs[i+1]], [y, y], color="#0077b6", lw=2.2)
+                ax.text((xs[i]+xs[i+1])/2, y+.12, f"B{bid}", ha="center", fontsize=8, color="#0077b6")
+                bid += 1
+        for i, x in enumerate(xs):
+            for j in range(ny-1):
+                ax.plot([x, x], [ys[j], ys[j+1]], color="#0077b6", lw=2.2)
+                ax.text(x+.12, (ys[j]+ys[j+1])/2, f"B{bid}", fontsize=8, color="#0077b6")
+                bid += 1
+    elif kind == "Slab plan":
+        sid = 1
+        for i in range(nx-1):
+            for j in range(ny-1):
+                cx = (xs[i]+xs[i+1])/2
+                cy = (ys[j]+ys[j+1])/2
+                ax.add_patch(Rectangle((xs[i], ys[j]), xs[i+1]-xs[i], ys[j+1]-ys[j], fill=False, edgecolor="#2a9d8f", lw=1.4))
+                ax.text(cx, cy, f"S{sid}\nPanel", ha="center", va="center", fontsize=8, color="#168277")
+                sid += 1
+    style_plan(ax, kind + " — coordinated concept grid", w, l)
+    ax.text(w/2, l+1.05, "Grid spacing is derived from the concept footprint; verify all members by structural design.", ha="center", fontsize=8)
     fig.tight_layout()
     return fig
 
 st.header("3. Architectural planning")
-st.write("Choose a floor below to view its schematic room zoning. This is not a permit-ready plan; detailed room dimensions, wall thicknesses, all openings and stair design need architectural development.")
+st.write("Choose a floor below to view a dimensioned concept plan with room labels, indicative openings, entry door and a stair marker. This remains a schematic concept, not a permit-ready architectural drawing.")
 arch_tabs = st.tabs(["Ground floor"] + [f"Floor {i+1}" for i in range(1, selected_floors)])
 for i, tab in enumerate(arch_tabs):
     with tab:
         st.pyplot(architectural_plan(foot_w, foot_l, i), use_container_width=True)
-        st.caption("Outer dimensions are approximate footprint dimensions. Internal room divisions are schematic, not measured room sizes.")
+        st.caption("Overall dimensions are labelled. Internal room dimensions are approximate zoning estimates; validate room sizes, ventilation, access and local requirements with an architect.")
 
 st.header("4. RCC structural layout sheets")
-st.write("The same conceptual grid is used for all sheets. Member IDs are placeholders and are not a designed structural frame.")
+st.write("The sheets now show matching grid nodes, beam runs, slab panels and footing symbols. IDs and sizes remain conceptual placeholders, not a designed structural frame.")
 struct_tabs = st.tabs(["Column plan", "Beam plan", "Slab plan", "Foundation plan"])
 for tab, kind in zip(struct_tabs, ["Column plan", "Beam plan", "Slab plan", "Foundation plan"]):
     with tab:
         st.pyplot(structural_plan(kind, foot_w, foot_l), use_container_width=True)
-        st.caption("Concept coordination drawing only. Final member locations and sizes require engineering design and site-specific information.")
+        st.caption("Concept coordination drawing only. Grid labels and member IDs help read the plan; final member locations, sizes and foundations require site-specific engineering design.")
 
 st.header("5. Preliminary load analysis")
 slab_t = 0.15
